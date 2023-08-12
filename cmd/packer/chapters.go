@@ -17,8 +17,8 @@ type Chapter struct {
 }
 
 type MangaDirContent struct {
-	subDirPaths []string
-	imagePaths  []string
+	subDirs []os.FileInfo
+	images  []image.Image
 }
 
 func discoverMangaChapters(rootDirPath string) ([]Chapter, error) {
@@ -26,72 +26,67 @@ func discoverMangaChapters(rootDirPath string) ([]Chapter, error) {
 	if err != nil {
 		return nil, err
 	}
-	hasSubDirs := len(rootContent.subDirPaths) > 0
-	hasRootImages := len(rootContent.imagePaths) > 0
+	hasSubDirs := len(rootContent.subDirs) > 0
+	hasRootImages := len(rootContent.images) > 0
 	isRootChapter := !hasSubDirs && hasRootImages
 	if hasSubDirs {
 		chapters := []Chapter{}
-		for _, subDirPath := range rootContent.subDirPaths {
+		for _, subDir := range rootContent.subDirs {
+			subDirPath := path.Join(rootDirPath, subDir.Name())
 			subContent, err := getMangaDirContent(subDirPath)
 			if err != nil {
 				return nil, err
 			}
-			isVolume := len(subContent.subDirPaths) > 0
-			hasImages := len(subContent.imagePaths) > 0
+			isVolume := len(subContent.subDirs) > 0
+			hasImages := len(subContent.images) > 0
 			isChapter := !isVolume && hasImages
 			if isVolume {
 				volumeChapters := []Chapter{}
-				for _, chapterPath := range subContent.subDirPaths {
+				for _, chapterDir := range subContent.subDirs {
+					chapterPath := path.Join(subDirPath, chapterDir.Name())
 					chapterContent, err := getMangaDirContent(chapterPath)
 					if err != nil {
 						return nil, err
 					}
-					hasSubDirs := len(chapterContent.subDirPaths) > 0
+					hasSubDirs := len(chapterContent.subDirs) > 0
 					if hasSubDirs {
 						return nil, fmt.Errorf(`detected subdirectories within a chapter directory "%v"`, chapterPath)
 					}
-					chapter, err := createChapter(chapterPath)
-					if err != nil {
-						return nil, err
+					chapter := Chapter{
+						title:  chapterDir.Name(),
+						images: chapterContent.images,
 					}
 					volumeChapters = append(volumeChapters, chapter)
 				}
 				if hasImages {
-					for _, imagePath := range subContent.imagePaths {
-						img, err := readImageFromPath(imagePath)
-						if err != nil {
-							return nil, fmt.Errorf(`cannot load an image on path "%v" %w`, imagePath, err)
-						}
+					for _, img := range subContent.images {
 						volumeChapters[0].images = append([]image.Image{img}, volumeChapters[0].images...)
 					}
 				}
 				chapters = append(chapters, volumeChapters...)
 			} else if isChapter {
-				chapter, err := createChapter(subDirPath)
-				if err != nil {
-					return nil, err
+				chapter := Chapter{
+					title:  subDir.Name(),
+					images: subContent.images,
 				}
 				chapters = append(chapters, chapter)
 			} else {
-				return nil, fmt.Errorf(`unknown manga sub-directory structure at path "%v"`, subDirPath)
+				return nil, fmt.Errorf(`unknown manga sub-directory structure at path "%v"`, subDir)
 			}
 		}
 		if hasRootImages {
-			for _, imagePath := range rootContent.imagePaths {
-				img, err := readImageFromPath(imagePath)
-				if err != nil {
-					return nil, fmt.Errorf(`cannot load an image on path "%v" %w`, imagePath, err)
-				}
+			for _, img := range rootContent.images {
 				chapters[0].images = append([]image.Image{img}, chapters[0].images...)
 			}
 		}
 		return chapters, nil
 	} else if isRootChapter {
-		chapter, err := createChapter(rootDirPath)
-		if err != nil {
-			return nil, err
-		}
-		return []Chapter{chapter}, err
+		return []Chapter{
+			Chapter{
+				title:  path.Base(rootDirPath),
+				images: rootContent.images,
+			},
+		}, err
 	} else {
 		return nil, fmt.Errorf(`unknown manga directory structure at path "%v"`, rootDirPath)
 	}
@@ -99,13 +94,14 @@ func discoverMangaChapters(rootDirPath string) ([]Chapter, error) {
 
 func getMangaDirContent(dirPath string) (MangaDirContent, error) {
 	items, _ := os.ReadDir(dirPath)
-	imagePaths := []string{}
-	subDirPaths := []string{}
+	subDirNames := []string{}
+	imageNames := []string{}
 	for _, item := range items {
-		itemPath := path.Join(dirPath, item.Name())
+		itemName := item.Name()
 		if item.IsDir() {
-			subDirPaths = append(subDirPaths, itemPath)
+			subDirNames = append(subDirNames, itemName)
 		} else {
+			itemPath := path.Join(dirPath, itemName)
 			file, err := os.Open(itemPath)
 			if err != nil {
 				return MangaDirContent{}, err
@@ -121,34 +117,36 @@ func getMangaDirContent(dirPath string) (MangaDirContent, error) {
 			filetype := http.DetectContentType(buff)
 			switch filetype {
 			case "image/jpeg", "image/jpg", "image/png":
-				imagePaths = append(imagePaths, itemPath)
+				imageNames = append(imageNames, itemName)
 			default:
 				log.Println(fmt.Sprintf(`file type is not of an image "%v", for file "%v"`, filetype, itemPath))
 			}
 		}
 	}
-	natsort.Sort(imagePaths)  // in-place sort
-	natsort.Sort(subDirPaths) // in-place sort
-	return MangaDirContent{
-		subDirPaths: subDirPaths,
-		imagePaths:  imagePaths,
-	}, nil
-}
 
-func createChapter(chapterDirPath string) (Chapter, error) {
-	items, _ := os.ReadDir(chapterDirPath)
-	loadedImages := []image.Image{}
-	for _, imageItem := range items {
-		imagePath := path.Join(chapterDirPath, imageItem.Name())
-		img, err := readImageFromPath(imagePath)
+	natsort.Sort(subDirNames) // in-place sort
+	subDirs := []os.FileInfo{}
+	for _, name := range subDirNames {
+		subDir, err := os.Stat(path.Join(dirPath, name))
 		if err != nil {
-			return Chapter{}, fmt.Errorf(`cannot load an image on path "%v" %w`, imagePath, err)
+			return MangaDirContent{}, err
 		}
-		loadedImages = append(loadedImages, img)
+		subDirs = append(subDirs, subDir)
 	}
-	return Chapter{
-		title:  path.Base(chapterDirPath),
-		images: loadedImages,
+
+	natsort.Sort(imageNames) // in-place sort
+	images := []image.Image{}
+	for _, name := range imageNames {
+		img, err := readImageFromPath(path.Join(dirPath, name))
+		if err != nil {
+			return MangaDirContent{}, err
+		}
+		images = append(images, img)
+	}
+
+	return MangaDirContent{
+		subDirs: subDirs,
+		images:  images,
 	}, nil
 }
 

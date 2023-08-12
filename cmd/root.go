@@ -29,8 +29,8 @@ func Execute() {
 	if err != nil {
 		os.Exit(1)
 	}
-	//packer.PackMangaForKindle("./cmd/packer/test_assets/Some Simple Manga")
-	packer.PackMangaForKindle("./cmd/packer/test_assets/Some Manga With Title Page And Volumes")
+	//packer.PackMangaForKindle("./test_assets/Some Simple Manga")
+	packer.PackMangaForKindle("./test_assets/Some Manga With Title Page And Volumes")
 }
 
 func init() {
