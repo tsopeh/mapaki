@@ -9,7 +9,7 @@ import (
 
 func TestGetNaturallyOrderedImagePathsForSomeSimpleManga(t *testing.T) {
 	log.Println(os.Getwd())
-	images, err := getNaturallyOrderedImagePaths("./test_assets/Some Simple Manga")
+	images, err := discoverMangaChapters("./test_assets/Some Simple Manga")
 	if err != nil {
 		t.FailNow()
 	}
@@ -30,7 +30,7 @@ func TestGetNaturallyOrderedImagePathsForSomeSimpleManga(t *testing.T) {
 
 func TestGetNaturallyOrderedImagePathsForSomeMangaWithTitlePageAndVolumes(t *testing.T) {
 	log.Println(os.Getwd())
-	images, err := getNaturallyOrderedImagePaths("./test_assets/Some Manga With Title Page And Volumes")
+	images, err := discoverMangaChapters("./test_assets/Some Manga With Title Page And Volumes")
 	if err != nil {
 		t.FailNow()
 	}
