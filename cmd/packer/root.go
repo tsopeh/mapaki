@@ -3,19 +3,67 @@ package packer
 import (
 	"facette.io/natsort"
 	"fmt"
+	"github.com/leotaku/mobi"
+	"github.com/leotaku/mobi/records"
+	"image"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path"
+	"time"
 )
 
-func PackMangaForKindle(inputPath string) error {
-	orderedImages, err := getNaturallyOrderedImagePaths(inputPath)
+func PackMangaForKindle(rootDir string) error {
+	orderedImagePaths, err := getNaturallyOrderedImagePaths(rootDir)
 	if err != nil {
 		return err
 	}
-	log.Println(orderedImages)
+	if len(orderedImagePaths) == 0 {
+		return fmt.Errorf("no manga pages were found")
+	}
+
+	pages := make([]string, 0)
+	chapters := make([]mobi.Chapter, 0)
+	images := make([]image.Image, 0)
+	pageImageIndex := 1
+
+	for _, imagePath := range orderedImagePaths {
+		img, err := readImageFromFilePath(imagePath)
+		if err != nil {
+			return fmt.Errorf(`cannot load image on path "%w"`, err)
+		}
+		images = append(images, img)
+		pages = append(pages, templateToString(pageTemplate, records.To32(pageImageIndex)))
+		pageImageIndex++
+	}
+
+	chapters = append(chapters, mobi.Chapter{
+		Title:  "Chapter title TODO",
+		Chunks: mobi.Chunks(pages...),
+	})
+
+	book := mobi.Book{
+		Title:       "Manga title TODO", // TODO: Use title from arguments or fallback to root dir name.
+		CSSFlows:    []string{basePageCSS},
+		Chapters:    chapters,
+		Images:      images,
+		CoverImage:  images[0],
+		FixedLayout: true,
+		RightToLeft: true,
+		CreatedDate: time.Unix(0, 0),
+		UniqueID:    uint32(time.Unix(0, 0).UnixMilli()),
+	}
+
+	outFileAbsPath := path.Join(rootDir, "out.azw3")
+	writer, err := os.Create(outFileAbsPath)
+	if err != nil {
+		return fmt.Errorf(`could not create output file: "%v" %w`, outFileAbsPath, err)
+	}
+	err = book.Realize().Write(writer)
+	if err != nil {
+		return fmt.Errorf(`could not write output file: "%v" %w`, outFileAbsPath, err)
+	}
+
 	return nil
 }
 
@@ -48,8 +96,8 @@ func getNaturallyOrderedImagePaths(dirPath string) ([]string, error) {
 			}
 		}
 	}
-	natsort.Sort(images)
-	natsort.Sort(subDirs)
+	natsort.Sort(images)  // in-place sort
+	natsort.Sort(subDirs) // in-place sort
 	for _, subDir := range subDirs {
 		if subImages, err := getNaturallyOrderedImagePaths(subDir); err != nil {
 			return nil, err
@@ -58,4 +106,14 @@ func getNaturallyOrderedImagePaths(dirPath string) ([]string, error) {
 		}
 	}
 	return images, nil
+}
+
+func readImageFromFilePath(imgPath string) (image.Image, error) {
+	f, err := os.Open(imgPath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	img, _, err := image.Decode(f)
+	return img, err
 }
