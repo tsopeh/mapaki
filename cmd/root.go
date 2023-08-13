@@ -2,45 +2,51 @@ package cmd
 
 import (
 	"github.com/tsopeh/mapaki/cmd/packer"
+	"log"
 	"os"
 
 	"github.com/spf13/cobra"
 )
 
-// rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "mapaki",
-	Short: "A manga packer for Kindle devices.",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Short: "A no-brainer manga packer for Kindle.",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		disableAutoCrop, _ := cmd.Flags().GetBool("disable-auto-crop")
+		leftToRight, _ := cmd.Flags().GetBool("left-to-right")
+		doublePage, _ := cmd.Flags().GetString("double-page")
+		title, _ := cmd.Flags().GetString("title")
+		inputDir, _ := cmd.Flags().GetString("input-dir")
+		outputFilePath, _ := cmd.Flags().GetString("output-file-path")
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+		err := packer.PackMangaForKindle(packer.PackForKindleParams{
+			RootDir:        inputDir,
+			AutoCrop:       !disableAutoCrop,
+			RightToLeft:    !leftToRight,
+			DoublePage:     doublePage,
+			Title:          title,
+			OutputFilePath: outputFilePath,
+		})
+		return err
+	},
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
 	}
-	//packer.PackMangaForKindle("./test_assets/Some Simple Manga")
-	packer.PackMangaForKindle("./test_assets/Some Manga With Title Page And Volumes")
 }
 
 func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.mapaki.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.Flags().Bool("disable-auto-crop", false, `should disable auto cropping (default: false)`)
+	rootCmd.Flags().Bool("left-to-right", false, `left to right reading direction (default: false)`)
+	rootCmd.Flags().String("double-page", "double-then-split", `what to do with double pages. options: "only-double", "only-split", "split-then-double" and "double-then-split"`)
+	rootCmd.Flags().String("title", "", `manga title. does not affect the output file path`)
+	rootCmd.Flags().StringP("input-dir", "i", "", `path to the manga root directory (required)`)
+	rootCmd.Flags().StringP("output-file-path", "o", "", `output path that includes the filename and '.azw3' extension (default: "../[manga dir name].azw3")`)
+	rootCmd.MarkFlagRequired("input-dir")
+	if err := rootCmd.ParseFlags(os.Args); err != nil {
+		log.Fatalf(`init: failed to parse the command input. %w`, err)
+	}
 }

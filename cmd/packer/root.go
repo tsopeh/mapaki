@@ -10,8 +10,18 @@ import (
 	"time"
 )
 
-func PackMangaForKindle(rootDir string) error {
-	mangaChapters, err := discoverMangaChapters(rootDir)
+type PackForKindleParams struct {
+	RootDir        string
+	AutoCrop       bool
+	RightToLeft    bool
+	DoublePage     string
+	Title          string
+	OutputFilePath string
+}
+
+func PackMangaForKindle(params PackForKindleParams) error {
+
+	mangaChapters, err := discoverMangaChapters(params.RootDir)
 	if err != nil {
 		return err
 	}
@@ -36,7 +46,11 @@ func PackMangaForKindle(rootDir string) error {
 		})
 	}
 
-	mangaTitle := path.Base(rootDir)
+	mangaDirName := path.Base(params.RootDir)
+	mangaTitle := params.Title
+	if mangaTitle == "" {
+		mangaTitle = mangaDirName
+	}
 
 	book := mobi.Book{
 		Title:       mangaTitle, // TODO: Use title from arguments or fallback to root dir name.
@@ -45,19 +59,22 @@ func PackMangaForKindle(rootDir string) error {
 		Images:      allImages,
 		CoverImage:  allImages[0],
 		FixedLayout: true,
-		RightToLeft: true,
+		RightToLeft: params.RightToLeft,
 		CreatedDate: time.Unix(0, 0),
 		UniqueID:    uint32(time.Unix(0, 0).UnixMilli()),
 	}
 
-	outFileAbsPath := path.Join(rootDir, "../", mangaTitle+".azw3")
-	writer, err := os.Create(outFileAbsPath)
+	outputFilePath := params.OutputFilePath
+	if outputFilePath == "" {
+		outputFilePath = path.Join(params.RootDir, "../", mangaDirName+".azw3")
+	}
+	writer, err := os.Create(outputFilePath)
 	if err != nil {
-		return fmt.Errorf(`could not create output file: "%v" %w`, outFileAbsPath, err)
+		return fmt.Errorf(`could not create output file: "%v" %w`, outputFilePath, err)
 	}
 	err = book.Realize().Write(writer)
 	if err != nil {
-		return fmt.Errorf(`could not write output file: "%v" %w`, outFileAbsPath, err)
+		return fmt.Errorf(`could not write output file: "%v" %w`, outputFilePath, err)
 	}
 
 	return nil
