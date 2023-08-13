@@ -20,12 +20,12 @@ var rootCmd = &cobra.Command{
 		outputFilePath, _ := cmd.Flags().GetString("output-file-path")
 
 		err := packer.PackMangaForKindle(packer.PackForKindleParams{
-			RootDir:        inputDir,
-			AutoCrop:       !disableAutoCrop,
-			RightToLeft:    !leftToRight,
-			DoublePage:     doublePage,
-			Title:          title,
-			OutputFilePath: outputFilePath,
+			RootDir:         inputDir,
+			DisableAutoCrop: disableAutoCrop,
+			LeftToRight:     leftToRight,
+			DoublePage:      doublePage,
+			Title:           title,
+			OutputFilePath:  outputFilePath,
 		})
 		return err
 	},
