@@ -36,8 +36,10 @@ func PackMangaForKindle(rootDir string) error {
 		})
 	}
 
+	mangaTitle := path.Base(rootDir)
+
 	book := mobi.Book{
-		Title:       "Manga title TODO", // TODO: Use title from arguments or fallback to root dir name.
+		Title:       mangaTitle, // TODO: Use title from arguments or fallback to root dir name.
 		CSSFlows:    []string{basePageCSS},
 		Chapters:    bookChapters,
 		Images:      allImages,
@@ -48,7 +50,7 @@ func PackMangaForKindle(rootDir string) error {
 		UniqueID:    uint32(time.Unix(0, 0).UnixMilli()),
 	}
 
-	outFileAbsPath := path.Join(rootDir, "out.azw3")
+	outFileAbsPath := path.Join(rootDir, "../", mangaTitle+".azw3")
 	writer, err := os.Create(outFileAbsPath)
 	if err != nil {
 		return fmt.Errorf(`could not create output file: "%v" %w`, outFileAbsPath, err)
