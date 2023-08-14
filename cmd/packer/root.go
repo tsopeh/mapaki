@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"github.com/leotaku/mobi"
 	"github.com/leotaku/mobi/records"
-	"github.com/tsopeh/mapaki/cmd/crop"
 	"image"
+	"log"
 	"os"
 	"path"
 	"time"
@@ -22,73 +22,35 @@ type PackForKindleParams struct {
 
 func PackMangaForKindle(params PackForKindleParams) error {
 
-	mangaChapters, err := discoverMangaChapters(params.RootDir)
+	discoveredChapters, err := discoverMangaChapters(params.RootDir)
 	if err != nil {
 		return err
 	}
-	if len(mangaChapters) == 0 {
+	if len(discoveredChapters) == 0 {
 		return fmt.Errorf("no manga chapters were found")
 	}
+
+	processedChapters, err := processChapters(discoveredChapters, ProcessingOptions{
+		DisableAutoCrop: params.DisableAutoCrop,
+		DoublePage:      params.DoublePage,
+	})
 
 	bookChapters := []mobi.Chapter{}
 	allImages := []image.Image{}
 	pageImageIndex := 1
-
-	for chapterIndex, chapter := range mangaChapters {
+	for chapterIndex, chapter := range processedChapters {
 		pages := []string{}
-		for imageIndex, img := range chapter.images {
-			croppedImage := img
-			if !params.DisableAutoCrop {
-				if cropped, err := crop.Crop(img, crop.Limited(img, 0.1)); err != nil {
-					return fmt.Errorf(`failed to crop an image in chapter %v, at index %v. %w`, chapterIndex, imageIndex, err)
-				} else {
-					croppedImage = cropped
-				}
-			}
-
-			bounds := croppedImage.Bounds()
-			isDoublePage := bounds.Dx() >= bounds.Dy()
-			if isDoublePage && params.DoublePage != "only-double" {
-				leftImage, rightImage, err := crop.SplitVertically(croppedImage)
-				if err != nil {
-					return fmt.Errorf(`could not split the image at chapter %v, at index %v`, chapterIndex, imageIndex, err)
-				}
-				switch params.DoublePage {
-				case "only-split":
-					allImages = append(allImages, rightImage, leftImage)
-					pages = append(pages, templateToString(pageTemplate, records.To32(pageImageIndex)))
-					pageImageIndex++
-					pages = append(pages, templateToString(pageTemplate, records.To32(pageImageIndex)))
-					pageImageIndex++
-				case "split-then-double":
-					allImages = append(allImages, rightImage, leftImage)
-					pages = append(pages, templateToString(pageTemplate, records.To32(pageImageIndex)))
-					pageImageIndex++
-					pages = append(pages, templateToString(pageTemplate, records.To32(pageImageIndex)))
-					pageImageIndex++
-
-					allImages = append(allImages, croppedImage)
-					pages = append(pages, templateToString(pageTemplate, records.To32(pageImageIndex)))
-					pageImageIndex++
-				case "double-then-split":
-					allImages = append(allImages, croppedImage)
-					pages = append(pages, templateToString(pageTemplate, records.To32(pageImageIndex)))
-					pageImageIndex++
-
-					allImages = append(allImages, rightImage, leftImage)
-					pages = append(pages, templateToString(pageTemplate, records.To32(pageImageIndex)))
-					pageImageIndex++
-					pages = append(pages, templateToString(pageTemplate, records.To32(pageImageIndex)))
-					pageImageIndex++
-				default:
-					return fmt.Errorf(`unknown double-page flag value %v`, params.DoublePage)
-				}
-			} else {
-				allImages = append(allImages, croppedImage)
-				pages = append(pages, templateToString(pageTemplate, records.To32(pageImageIndex)))
+		if len(chapter.images) > 0 {
+			for _, img := range chapter.images {
+				allImages = append(allImages, img)
+				pages = append(pages, templateToString(imagePageTemplate, records.To32(pageImageIndex)))
 				pageImageIndex++
 			}
+		} else {
+			log.Println(fmt.Sprintf(`Empty chapter %v`, chapterIndex))
+			pages = append(pages, templateToString(emptyPageTemplate, nil))
 		}
+
 		bookChapters = append(bookChapters, mobi.Chapter{
 			Title:  chapter.title,
 			Chunks: mobi.Chunks(pages...),
@@ -102,7 +64,7 @@ func PackMangaForKindle(params PackForKindleParams) error {
 	}
 
 	book := mobi.Book{
-		Title:       mangaTitle, // TODO: Use title from arguments or fallback to root dir name.
+		Title:       mangaTitle,
 		CSSFlows:    []string{basePageCSS},
 		Chapters:    bookChapters,
 		Images:      allImages,
