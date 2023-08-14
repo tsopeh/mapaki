@@ -2,6 +2,7 @@ package packer
 
 import (
 	"fmt"
+	"github.com/cheggaaa/pb/v3"
 	"github.com/leotaku/mobi"
 	"github.com/leotaku/mobi/records"
 	"image"
@@ -80,6 +81,8 @@ func PackMangaForKindle(params PackForKindleParams) error {
 	if err != nil {
 		return fmt.Errorf(`could not create output file: "%v" %w`, outputFilePath, err)
 	}
+	bookExportPb := pb.ProgressBarTemplate(`Exporting manga {{(cycle . "↖" "↗" "↘" "↙" )}}`)
+	bookExportPb.Start(0)
 	err = book.Realize().Write(writer)
 	if err != nil {
 		return fmt.Errorf(`could not write output file: "%v" %w`, outputFilePath, err)

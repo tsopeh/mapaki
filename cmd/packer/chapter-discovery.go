@@ -3,6 +3,7 @@ package packer
 import (
 	"facette.io/natsort"
 	"fmt"
+	"github.com/cheggaaa/pb/v3"
 	"image"
 	_ "image/png"
 	"io"
@@ -31,6 +32,10 @@ func discoverMangaChapters(rootDirPath string) ([]Chapter, error) {
 	hasRootImages := len(rootContent.images) > 0
 	isRootChapter := !hasSubDirs && hasRootImages
 	if hasSubDirs {
+		var discoveringPb = pb.New(0)
+		discoveringPb.Set("prefix", "Discovering chapters")
+		discoveringPb.SetMaxWidth(80)
+		discoveringPb.Start()
 		chapters := []Chapter{}
 		for _, subDir := range rootContent.subDirs {
 			subDirPath := path.Join(rootDirPath, subDir.Name())
@@ -42,6 +47,7 @@ func discoverMangaChapters(rootDirPath string) ([]Chapter, error) {
 			hasImages := len(subContent.images) > 0
 			isChapter := !isVolume && hasImages
 			if isVolume {
+				discoveringPb.AddTotal(int64(len(subContent.subDirs)))
 				volumeChapters := []Chapter{}
 				for _, chapterDir := range subContent.subDirs {
 					chapterPath := path.Join(subDirPath, chapterDir.Name())
@@ -58,6 +64,7 @@ func discoverMangaChapters(rootDirPath string) ([]Chapter, error) {
 						pages: chapterContent.images,
 					}
 					volumeChapters = append(volumeChapters, chapter)
+					discoveringPb.Add(1)
 				}
 				if hasImages {
 					for _, img := range subContent.images {
@@ -66,17 +73,21 @@ func discoverMangaChapters(rootDirPath string) ([]Chapter, error) {
 				}
 				chapters = append(chapters, volumeChapters...)
 			} else if isChapter {
+				discoveringPb.AddTotal(int64(len(subContent.subDirs)))
 				chapter := Chapter{
 					title: subDir.Name(),
 					pages: subContent.images,
 				}
 				chapters = append(chapters, chapter)
+				discoveringPb.Add(1)
 			} else {
 				// An empty directory will produce an empty chapter
+				discoveringPb.AddTotal(int64(len(subContent.subDirs)))
 				chapters = append(chapters, Chapter{
 					title: subDir.Name(),
 					pages: []image.Image{},
 				})
+				discoveringPb.AddTotal(1)
 			}
 		}
 		if hasRootImages {
@@ -84,6 +95,7 @@ func discoverMangaChapters(rootDirPath string) ([]Chapter, error) {
 				chapters[0].pages = append([]image.Image{img}, chapters[0].pages...)
 			}
 		}
+		discoveringPb.Finish()
 		return chapters, nil
 	} else if isRootChapter {
 		return []Chapter{

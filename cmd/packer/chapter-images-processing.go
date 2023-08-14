@@ -2,6 +2,7 @@ package packer
 
 import (
 	"fmt"
+	"github.com/cheggaaa/pb/v3"
 	"github.com/tsopeh/mapaki/cmd/crop"
 	"image"
 )
@@ -34,6 +35,10 @@ type ImageProcessingResult struct {
 func processChapters(input []Chapter, options ProcessingOptions) ([]Chapter, error) {
 	doneCh := make(chan struct{})
 	defer close(doneCh)
+	var processingPb = pb.New(0)
+	processingPb.Set("prefix", "Processing images")
+	processingPb.SetMaxWidth(80)
+	processingPb.Start()
 
 	chapterProcessingInputCh := make(chan ChapterProcessingInput)
 
@@ -42,6 +47,7 @@ func processChapters(input []Chapter, options ProcessingOptions) ([]Chapter, err
 	go func() {
 		defer close(chapterProcessingInputCh)
 		for chapterIndex, chapter := range input {
+			processingPb.AddTotal(int64(len(chapter.pages)))
 			select {
 			case chapterProcessingInputCh <- ChapterProcessingInput{
 				chapterIndex: chapterIndex,
@@ -68,8 +74,11 @@ func processChapters(input []Chapter, options ProcessingOptions) ([]Chapter, err
 				pageMap = chapterMap[result.chapterIndex]
 			}
 			pageMap[result.pageIndex] = result.images
+			processingPb.Add(1)
 		}
 	}
+
+	processingPb.Finish()
 
 	output := []Chapter{}
 	for chapterIndex := 0; chapterIndex < len(chapterMap); chapterIndex++ {

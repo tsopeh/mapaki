@@ -8,8 +8,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// TODO: Concurrently process images in a chapter
-// TODO: Add progress bars
 // TODO: Documentation
 
 var rootCmd = &cobra.Command{
