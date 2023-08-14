@@ -80,10 +80,11 @@ func processChapters(input []Chapter, options ProcessingOptions) ([]Chapter, err
 			pages = append(pages, images...)
 		}
 		output = append(output, Chapter{
-			title:  input[chapterIndex].title,
-			images: pages,
+			title: input[chapterIndex].title,
+			pages: pages,
 		})
 	}
+
 	return output, nil
 }
 
@@ -92,7 +93,7 @@ func processChapter(doneCh <-chan struct{}, inputCh <-chan ChapterProcessingInpu
 	go func() {
 		defer close(outputCh)
 		for input := range inputCh {
-			for pageIndex, img := range input.chapter.images {
+			for pageIndex, img := range input.chapter.pages {
 				select {
 				case outputCh <- ImageProcessingInput{
 					chapterIndex: input.chapterIndex,

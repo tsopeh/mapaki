@@ -12,8 +12,8 @@ import (
 )
 
 type Chapter struct {
-	title  string
-	images []image.Image
+	title string
+	pages []image.Image
 }
 
 type MangaDirContent struct {
@@ -53,38 +53,42 @@ func discoverMangaChapters(rootDirPath string) ([]Chapter, error) {
 						return nil, fmt.Errorf(`detected subdirectories within a chapter directory "%v"`, chapterPath)
 					}
 					chapter := Chapter{
-						title:  chapterDir.Name(),
-						images: chapterContent.images,
+						title: chapterDir.Name(),
+						pages: chapterContent.images,
 					}
 					volumeChapters = append(volumeChapters, chapter)
 				}
 				if hasImages {
 					for _, img := range subContent.images {
-						volumeChapters[0].images = append([]image.Image{img}, volumeChapters[0].images...)
+						volumeChapters[0].pages = append([]image.Image{img}, volumeChapters[0].pages...)
 					}
 				}
 				chapters = append(chapters, volumeChapters...)
 			} else if isChapter {
 				chapter := Chapter{
-					title:  subDir.Name(),
-					images: subContent.images,
+					title: subDir.Name(),
+					pages: subContent.images,
 				}
 				chapters = append(chapters, chapter)
 			} else {
-				return nil, fmt.Errorf(`unknown manga sub-directory structure at path "%v"`, subDir)
+				// An empty directory will produce an empty chapter
+				chapters = append(chapters, Chapter{
+					title: subDir.Name(),
+					pages: []image.Image{},
+				})
 			}
 		}
 		if hasRootImages {
 			for _, img := range rootContent.images {
-				chapters[0].images = append([]image.Image{img}, chapters[0].images...)
+				chapters[0].pages = append([]image.Image{img}, chapters[0].pages...)
 			}
 		}
 		return chapters, nil
 	} else if isRootChapter {
 		return []Chapter{
 			Chapter{
-				title:  path.Base(rootDirPath),
-				images: rootContent.images,
+				title: path.Base(rootDirPath),
+				pages: rootContent.images,
 			},
 		}, err
 	} else {
@@ -119,7 +123,7 @@ func getMangaDirContent(dirPath string) (MangaDirContent, error) {
 			case "image/jpeg", "image/jpg", "image/png":
 				imageNames = append(imageNames, itemName)
 			default:
-				log.Println(fmt.Sprintf(`file type is not of an image "%v", for file "%v"`, filetype, itemPath))
+				log.Println(fmt.Sprintf(`ignored file. reason: file type is not of an image "%v", for file "%v"`, filetype, itemPath))
 			}
 		}
 	}

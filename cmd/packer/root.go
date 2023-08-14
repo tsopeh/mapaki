@@ -5,7 +5,6 @@ import (
 	"github.com/leotaku/mobi"
 	"github.com/leotaku/mobi/records"
 	"image"
-	"log"
 	"os"
 	"path"
 	"time"
@@ -38,16 +37,15 @@ func PackMangaForKindle(params PackForKindleParams) error {
 	bookChapters := []mobi.Chapter{}
 	allImages := []image.Image{}
 	pageImageIndex := 1
-	for chapterIndex, chapter := range processedChapters {
+	for _, chapter := range processedChapters {
 		pages := []string{}
-		if len(chapter.images) > 0 {
-			for _, img := range chapter.images {
+		if len(chapter.pages) > 0 {
+			for _, img := range chapter.pages {
 				allImages = append(allImages, img)
 				pages = append(pages, templateToString(imagePageTemplate, records.To32(pageImageIndex)))
 				pageImageIndex++
 			}
 		} else {
-			log.Println(fmt.Sprintf(`Empty chapter %v`, chapterIndex))
 			pages = append(pages, templateToString(emptyPageTemplate, nil))
 		}
 
