@@ -20,7 +20,6 @@ type PackForKindleParams struct {
 }
 
 func PackMangaForKindle(params PackForKindleParams) error {
-
 	discoveredChapters, err := discoverMangaChapters(params.RootDir)
 	if err != nil {
 		return err

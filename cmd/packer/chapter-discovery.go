@@ -4,6 +4,7 @@ import (
 	"facette.io/natsort"
 	"fmt"
 	"image"
+	_ "image/png"
 	"io"
 	"log"
 	"net/http"
@@ -90,7 +91,7 @@ func discoverMangaChapters(rootDirPath string) ([]Chapter, error) {
 				title: path.Base(rootDirPath),
 				pages: rootContent.images,
 			},
-		}, err
+		}, nil
 	} else {
 		return nil, fmt.Errorf(`unknown manga directory structure at path "%v"`, rootDirPath)
 	}
@@ -108,13 +109,13 @@ func getMangaDirContent(dirPath string) (MangaDirContent, error) {
 			itemPath := path.Join(dirPath, itemName)
 			file, err := os.Open(itemPath)
 			if err != nil {
-				return MangaDirContent{}, err
+				return MangaDirContent{}, fmt.Errorf(`could not load file in path "%v". %w`, itemPath, err)
 			}
 			defer file.Close()
 			buff := make([]byte, 512) // why 512 bytes? see http://golang.org/pkg/net/http/#DetectContentType
 			bytesRead, err := file.Read(buff)
 			if err != nil && err != io.EOF {
-				return MangaDirContent{}, err
+				return MangaDirContent{}, fmt.Errorf(`could not load image to buffer. image path "%v". %w`, itemPath, err)
 			}
 			// Slice to remove fill-up zero values which cause a wrong content type detection in the next step
 			buff = buff[:bytesRead]
@@ -141,9 +142,10 @@ func getMangaDirContent(dirPath string) (MangaDirContent, error) {
 	natsort.Sort(imageNames) // in-place sort
 	images := []image.Image{}
 	for _, name := range imageNames {
-		img, err := readImageFromPath(path.Join(dirPath, name))
+		imagePath := path.Join(dirPath, name)
+		img, err := readImageFromPath(imagePath)
 		if err != nil {
-			return MangaDirContent{}, err
+			return MangaDirContent{}, fmt.Errorf(`could not load image in path "%v". %w`, imagePath, err)
 		}
 		images = append(images, img)
 	}
