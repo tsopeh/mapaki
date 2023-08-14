@@ -16,7 +16,8 @@ Mapaki is a no-brainer **ma**nga **pa**cker for **ki**ndle.
 
 ### Automatic chapter discovery
 
-It will automatically figure out file system layout of the downloaded manga. It supports two organizational patterns:
+It will automatically figure out the file system layout of the downloaded manga. It supports two organizational
+patterns:
 
 * The first
     ```text
@@ -67,6 +68,10 @@ will be "naturally sorted" ([read more](https://github.com/facette/natsort)) whi
 
 By default, Mapaki will crop out white space around all images. Auto cropping can be disabled via following
 flag `--disable-auto-crop=true`.
+
+### Full screen images
+
+Images fill the screen. There's no top or bottom margin, no padding, no stretching.
 
 ### Auto double page handling
 
