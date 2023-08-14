@@ -8,11 +8,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// TODO: Documentation
-
 var rootCmd = &cobra.Command{
-	Use:   "mapaki",
-	Short: "A no-brainer manga packer for Kindle.",
+	Use:     "mapaki",
+	Short:   "A no-brainer manga packer for Kindle.",
+	Version: "1.0",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		disableAutoCrop, _ := cmd.Flags().GetBool("disable-auto-crop")
 		leftToRight, _ := cmd.Flags().GetBool("left-to-right")
