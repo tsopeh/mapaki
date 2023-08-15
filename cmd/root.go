@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"github.com/tsopeh/mapaki/cmd/packer"
-	"log"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -11,7 +10,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:     "mapaki",
 	Short:   "A no-brainer manga packer for Kindle.",
-	Version: "1.0",
+	Version: "1.1",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		disableAutoCrop, _ := cmd.Flags().GetBool("disable-auto-crop")
 		leftToRight, _ := cmd.Flags().GetBool("left-to-right")
@@ -48,6 +47,7 @@ func init() {
 	rootCmd.Flags().StringP("output-file-path", "o", "", `output path that includes the filename and '.azw3' extension (default: "../[manga dir name].azw3")`)
 	rootCmd.MarkFlagRequired("input-dir")
 	if err := rootCmd.ParseFlags(os.Args); err != nil {
-		log.Fatalf(`init: failed to parse the command input. %w`, err)
+		// Don't exit. `ParseFlags` will fail if `--version` flag gets passed.
+		// log.Fatalf(`init: failed to parse the command input. %w`, err)
 	}
 }
