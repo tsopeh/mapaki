@@ -22,7 +22,6 @@ img {
 }`
 
 var imagePageTemplate = template.Must(template.New("page").Parse(`<div>.</div><img src="kindle:embed:{{ . }}?mime=image/jpeg">`))
-var emptyPageTemplate = template.Must(template.New("page").Parse(`<div>.</div><h1>Empty chapter</h1><h2>(╯°□°）╯︵ ┻━┻</h2>`))
 
 func templateToString(tpl *template.Template, data interface{}) string {
 	buf := new(strings.Builder)

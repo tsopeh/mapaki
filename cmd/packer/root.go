@@ -1,13 +1,18 @@
 package packer
 
 import (
+	"facette.io/natsort"
 	"fmt"
 	"github.com/cheggaaa/pb/v3"
 	"github.com/leotaku/mobi"
 	"github.com/leotaku/mobi/records"
 	"image"
+	"log"
 	"os"
 	"path"
+	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -20,40 +25,95 @@ type PackForKindleParams struct {
 	OutputFilePath  string
 }
 
+type ProcessingOptions struct {
+	DisableAutoCrop bool
+	DoublePage      string
+}
+
+type ProcessedPage struct {
+	imagePath string
+	images    []image.Image
+}
+
 func PackMangaForKindle(params PackForKindleParams) error {
-	discoveredChapters, err := discoverMangaChapters(params.RootDir)
-	if err != nil {
-		return err
+	commCh := CommCh{
+		done: make(chan struct{}),
+		err:  make(chan error),
 	}
-	if len(discoveredChapters) == 0 {
-		return fmt.Errorf("no manga chapters were found")
-	}
+	defer close(commCh.done)
+	defer close(commCh.err)
 
-	processedChapters, err := processChapters(discoveredChapters, ProcessingOptions{
-		DisableAutoCrop: params.DisableAutoCrop,
-		DoublePage:      params.DoublePage,
-	})
+	processedPageCh := processFile(
+		commCh,
+		ProcessingOptions{
+			DisableAutoCrop: params.DisableAutoCrop,
+			DoublePage:      params.DoublePage,
+		},
+		discoverFiles(commCh, params.RootDir),
+	)
 
-	bookChapters := []mobi.Chapter{}
-	allImages := []image.Image{}
-	pageImageIndex := 1
-	for _, chapter := range processedChapters {
-		pages := []string{}
-		if len(chapter.pages) > 0 {
-			for _, img := range chapter.pages {
-				allImages = append(allImages, img)
-				pages = append(pages, templateToString(imagePageTemplate, records.To32(pageImageIndex)))
-				pageImageIndex++
+	go func() {
+		for err := range commCh.err {
+			if err != nil {
+				log.Println(fmt.Errorf(`caught error: %w`, err))
+				commCh.done <- struct{}{}
 			}
-		} else {
-			pages = append(pages, templateToString(emptyPageTemplate, nil))
 		}
+	}()
 
-		bookChapters = append(bookChapters, mobi.Chapter{
-			Title:  chapter.title,
-			Chunks: mobi.Chunks(pages...),
-		})
+	processed := []ProcessedPage{}
+	for page := range processedPageCh {
+		processed = append(processed, page)
 	}
+
+	sort.SliceStable(processed, func(i, j int) bool {
+		a := processed[i].imagePath
+		b := processed[j].imagePath
+		aDir, _ := filepath.Split(a)
+		bDir, _ := filepath.Split(b)
+		areInSameDir := aDir == bDir
+		if areInSameDir {
+			return natsort.Compare(a, b)
+		} else {
+			if strings.Contains(bDir, aDir) {
+				return true
+			} else if strings.Contains(aDir, bDir) {
+				return false
+			} else {
+				return natsort.Compare(aDir, bDir)
+			}
+		}
+	})
+	if len(processed) == 0 {
+		return fmt.Errorf(`nothing to output, no manga pages were found`)
+	}
+
+	allImages := []image.Image{}
+	bookChapters := []mobi.Chapter{}
+	chapterBuffer := []string{}
+	pageImageIndex := 1
+	prevPageChapterName := getChapterNameForImagePath(processed[0].imagePath)
+	for _, page := range processed {
+		currPageChapterName := getChapterNameForImagePath(page.imagePath)
+		isSameChapterAsPrevPage := prevPageChapterName == currPageChapterName
+		if !isSameChapterAsPrevPage {
+			bookChapters = append(bookChapters, mobi.Chapter{
+				Title:  prevPageChapterName,
+				Chunks: mobi.Chunks(chapterBuffer...),
+			})
+			chapterBuffer = []string{}
+			prevPageChapterName = currPageChapterName
+		}
+		for _, img := range page.images {
+			allImages = append(allImages, img)
+			chapterBuffer = append(chapterBuffer, templateToString(imagePageTemplate, records.To32(pageImageIndex)))
+			pageImageIndex++
+		}
+	}
+	bookChapters = append(bookChapters, mobi.Chapter{
+		Title:  prevPageChapterName,
+		Chunks: mobi.Chunks(chapterBuffer...),
+	})
 
 	mangaDirName := path.Base(params.RootDir)
 	mangaTitle := params.Title
@@ -89,4 +149,8 @@ func PackMangaForKindle(params PackForKindleParams) error {
 	}
 
 	return nil
+}
+
+func getChapterNameForImagePath(imagePath string) string {
+	return filepath.Base(filepath.Dir(imagePath))
 }
