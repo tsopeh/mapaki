@@ -157,9 +157,12 @@ func getMangaDirContent(dirPath string) (MangaDirContent, error) {
 		imagePath := path.Join(dirPath, name)
 		img, err := readImageFromPath(imagePath)
 		if err != nil {
-			return MangaDirContent{}, fmt.Errorf(`could not load image in path "%v". %w`, imagePath, err)
+			// The error when reading (again) the image most likely
+			// means that image is corrupted. We will just skip it for now.
+			log.Println(fmt.Errorf(`possible corrupt image: could not load image in path "%v". %w`, imagePath, err))
+		} else {
+			images = append(images, img)
 		}
-		images = append(images, img)
 	}
 
 	return MangaDirContent{
