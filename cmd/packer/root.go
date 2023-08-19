@@ -23,11 +23,13 @@ type PackForKindleParams struct {
 	DoublePage      string
 	Title           string
 	OutputFilePath  string
+	CoresCount      int
 }
 
 type ProcessingOptions struct {
 	DisableAutoCrop bool
 	DoublePage      string
+	CoresCount      int
 }
 
 type ProcessedPage struct {
@@ -48,6 +50,7 @@ func PackMangaForKindle(params PackForKindleParams) error {
 		ProcessingOptions{
 			DisableAutoCrop: params.DisableAutoCrop,
 			DoublePage:      params.DoublePage,
+			CoresCount:      params.CoresCount,
 		},
 		discoverFiles(commCh, params.RootDir),
 	)
