@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"hash/fnv"
 )
 
 type PackForKindleParams struct {
@@ -133,7 +134,7 @@ func PackMangaForKindle(params PackForKindleParams) error {
 		FixedLayout: true,
 		RightToLeft: !params.LeftToRight,
 		CreatedDate: time.Unix(0, 0),
-		UniqueID:    uint32(time.Unix(0, 0).UnixMilli()),
+		UniqueID:    getUniqueId(mangaTitle),
 	}
 
 	outputFilePath := params.OutputFilePath
@@ -156,4 +157,10 @@ func PackMangaForKindle(params PackForKindleParams) error {
 
 func getChapterNameForImagePath(imagePath string) string {
 	return filepath.Base(filepath.Dir(imagePath))
+}
+
+func getUniqueId(title string) uint32 {
+	hash := fnv.New32()
+	hash.Write([]byte(title))
+	return hash.Sum32()
 }
