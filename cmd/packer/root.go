@@ -162,5 +162,5 @@ func getChapterNameForImagePath(imagePath string) string {
 func getUniqueId(title string) uint32 {
 	hash := fnv.New32()
 	hash.Write([]byte(title))
-	retturn hash.Sum32()
+	return hash.Sum32()
 }
