@@ -23,6 +23,7 @@ type PackForKindleParams struct {
 	LeftToRight     bool
 	DoublePage      string
 	Title           string
+	Author          string
 	OutputFilePath  string
 	CoresCount      int
 }
@@ -127,6 +128,7 @@ func PackMangaForKindle(params PackForKindleParams) error {
 
 	book := mobi.Book{
 		Title:       mangaTitle,
+		Authors:     []string{params.Author},
 		CSSFlows:    []string{basePageCSS},
 		Chapters:    bookChapters,
 		Images:      allImages,
